@@ -3,3 +3,5 @@ credentials
 templates/*
 !templates/examples
 test.py
+test2.py
+visu.json

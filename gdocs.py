@@ -21,7 +21,6 @@ def getDocument(creds, document_id):
 
 
 
-
 def fillDocument(creds, document_id, data):
     """Creates requests (json) to replace every {{}} keyword in the template
     Then sends the requests to the Docs service
@@ -32,11 +31,11 @@ def fillDocument(creds, document_id, data):
     for key in data.keys():
         requests.append(
             {
-                "replaceAllText": {
-                    "replaceText": data[key],
-                    "containsText": {
-                        "text": key,
-                        "matchCase": "true"
+                'replaceAllText': {
+                    'replaceText': data[key],
+                    'containsText': {
+                        'text': key,
+                        'matchCase': 'true'
                     }
                 }
             }
@@ -44,10 +43,47 @@ def fillDocument(creds, document_id, data):
 
     try:
         docs_service = build('docs', 'v1', credentials=creds)
-        result = docs_service.documents().batchUpdate(documentId=document_id, body={'requests': requests}).execute()
-        return result # What's returned doesn't really matter
+        docs_service.documents().batchUpdate(documentId=document_id, body={'requests': requests}).execute()
+
+        # Minor tweak for the square meter notation to display properly
+        requests = [correctSuperscript(creds, document_id)]
+        print(requests)
+        docs_service.documents().batchUpdate(documentId=document_id, body={'requests': requests}).execute()
     
     except HttpError as error:
         print('ERROR in gdocs.py > fillDocument(): Cannot connect or update Google Doc')
         print(error)
-        return
+    
+    return
+
+
+
+def correctSuperscript(creds, document_id):
+    """Corrects the square meters notation in detail1_info
+    """
+
+    doc = getDocument(creds, document_id)
+    json = doc['body']['content'][7]['table']['tableRows'][1]['tableCells'][0]['content'][0]['paragraph']['elements'][0]
+    line = json['textRun']['content']
+
+    # Get the index position of the square meters notation
+    index = json['startIndex']
+    for word in line.split(' '):
+        index += len(word)
+        if word[-1] == '2':
+            break
+        index += 1
+
+    request = {
+                    'updateTextStyle': {
+                        'textStyle': {
+                            'baselineOffset': 'SUPERSCRIPT'
+                        },
+                        'fields': 'baselineOffset',
+                        'range': {
+                            "startIndex": index - 1,
+                            "endIndex": index,
+                        }
+                    }
+                }
+    return request

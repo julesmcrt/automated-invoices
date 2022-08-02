@@ -21,18 +21,33 @@ def calcMissingFields(data):
     """
 
     for line in data:
-
         line['date_invoice'] = str(datetime.today().strftime('%d/%m/%Y')) # needs to be in global script for optimization purposes
         line['price_total_ht'] = 0
+
         for i in range(1, 5): # max number of lines in table
             if line[f'detail{i}_info'] != '' and line[f'detail{i}_info'] != '-':
+
+                # Sanitize inputs to enable conversion to float
+                if type(line[f'detail{i}_unit_price']) == str:
+                    line[f'detail{i}_unit_price'] = float(line[f'detail{i}_unit_price'].replace(',', '.').replace(' ', '').replace('€', ''))
+                if type(line[f'detail{i}_quantity']) == str:
+                    line[f'detail{i}_unit_price'] = float(line[f'detail{i}_unit_price'].replace(',', '.').replace(' ', ''))
+                
+                # Checks for 'Acompte' keyword: the price must be negative
+                if 'Acompte' in line[f'detail{i}_info']:
+                    line[f'detail{i}_unit_price'] *= -1 * int(line[f'detail{i}_unit_price'] >= 0)
+                    
                 line[f'detail{i}_price'] = float(line[f'detail{i}_quantity']) * float(line[f'detail{i}_unit_price'])
                 line['price_total_ht'] += line[f'detail{i}_price']
             else:
                 line[f'detail{i}_price'] = ''
+
         line['price_tva'] = line[f'price_total_ht'] * 0.2
         line['price_total_ttc'] = line[f'price_total_ht'] * 1.2
         line['price_to_pay'] = line['price_total_ttc']
+
+        # Splits detail1_info which contains a line in italic
+        line['detail1_info'], line['detail1_meals_info'] = line['detail1_info'].split('\n')
     
     return data
 
@@ -47,7 +62,7 @@ def formatData(data):
             if line[key] == '-':
                 line[key] = ''
 
-            if type(line[key]) == int and not ('quantity' in key or key == 'order_id'):
+            if type(line[key]) == int and not (key == 'order_id' or 'quantity' in key):
                 line[key] = float(line[key])
 
             if type(line[key]) == float:
@@ -62,5 +77,4 @@ def formatData(data):
             
             else:
                 line[key] = str(line[key])
-
     return data
